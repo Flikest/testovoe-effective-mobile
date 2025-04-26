@@ -1,0 +1,6 @@
+CREATE TABLE IF EXISTS users(
+    id BIGSERIAL UNIQUE NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    surname VARCHAR(200) NOT NULL,
+    patronymic VARCHAR(200) NOT NULL
+);
