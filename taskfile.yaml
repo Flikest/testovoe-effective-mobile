@@ -1,8 +1,10 @@
 version: "3"
 
 tasks:
-  up:
+  docker:
     cmds:
       - docker-compose up -d
+  up:
+    cmds:
       - go run cmd/migrator/main.go -migrations-path=migrations/sql
       - go run cmd/app/main.go -port=5000

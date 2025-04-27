@@ -1,0 +1,143 @@
+basePath: /v1/user/
+definitions:
+  entity.User:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      patronymic:
+        type: string
+      surname:
+        type: string
+    type: object
+  service.GetUsersRespnse:
+    properties:
+      age:
+        type: integer
+      gender:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      patronymic:
+        type: string
+      surname:
+        type: string
+    type: object
+  storage.User:
+    properties:
+      name:
+        type: string
+      patronymic:
+        type: string
+      surname:
+        type: string
+    type: object
+info:
+  contact:
+    email: grecmanviktor6@gmail.com
+  title: тестовое задание
+  version: "1.0"
+paths:
+  /v1/user/:
+    get:
+      consumes:
+      - application/json
+      description: get user by name, surname and optional patronymic
+      parameters:
+      - description: optional user full name
+        in: query
+        name: name,surname,patronymic
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetUsersRespnse'
+        "507":
+          description: Insufficient Storage
+          schema:
+            type: string
+      summary: get user on database
+      tags:
+      - user
+    patch:
+      consumes:
+      - application/json
+      description: update user by name, surname and optional patronymic
+      parameters:
+      - description: user full name
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/storage.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entity.User'
+        "507":
+          description: Insufficient Storage
+          schema:
+            type: string
+      summary: update user on database
+      tags:
+      - user
+    post:
+      consumes:
+      - application/json
+      description: create user by name, surname and optional patronymic
+      parameters:
+      - description: user full name
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/storage.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entity.User'
+        "507":
+          description: Insufficient Storage
+          schema:
+            type: string
+      summary: create user on database
+      tags:
+      - user
+  /v1/user/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: delete user on database
+      parameters:
+      - description: delete user
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: id
+          schema:
+            type: int
+        "507":
+          description: error
+          schema:
+            type: string
+      summary: delete user on database
+      tags:
+      - user
+swagger: "2.0"

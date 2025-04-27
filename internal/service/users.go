@@ -3,8 +3,11 @@ package service
 import (
 	"fmt"
 	"io"
+	"sync"
+
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/Flikest/testovoe-effective-mobile/internal/entity"
 	"github.com/Flikest/testovoe-effective-mobile/internal/storage"
@@ -24,19 +27,19 @@ type GetUsersRespnse struct {
 var (
 	statusCodeChan = make(chan int)
 	usersChan      = make(chan []entity.User)
-	enrichmentChan = make(chan []GetUsersRespnse)
+	wg             = sync.WaitGroup{}
 )
 
 func getDataOnUrl(url string) string {
 	response, err := http.Get(url)
 	if err != nil {
-		slog.Info("failed to get an answer: ", err)
+		slog.Error("failed to get an answer: ", err)
 	}
 	defer response.Body.Close()
 
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
-		slog.Info("failed to get the body of the request: ", err)
+		slog.Error("failed to get the body of the request: ", err)
 	}
 	slog.Info(string(data))
 
@@ -44,21 +47,13 @@ func getDataOnUrl(url string) string {
 }
 
 func enrichment(u entity.User) GetUsersRespnse {
-	age := getDataOnUrl(fmt.Sprintf("https://api.agify.io/?name=%s", u.Name))
+	stringAge := getDataOnUrl(fmt.Sprintf("https://api.agify.io/?name=%s", u.Name))
+	gender := getDataOnUrl(fmt.Sprintf("https://api.genderize.io/?name=%s", u.Name))
+	nationality := getDataOnUrl(fmt.Sprintf("https://api.nationalize.io/?name=%s", u.Name))
 
-	resp_age.Body.Read([]byte())
-
-	resp_gender, err := http.Get(fmt.Sprintf("https://api.genderize.io/?name=%s", u.Name))
+	age, err := strconv.Atoi(stringAge)
 	if err != nil {
-		slog.Info("gender not found: ", err)
-	}
-
-	resp_nationality, err := http.Get(fmt.Sprintf("https://api.nationalize.io/?name=%s", u.Name))
-	if err != nil {
-		slog.Info("nationality not found: ", err)
-	}
-	if err != nil {
-		slog.Info("age not found: ", err)
+		slog.Error("failed to convert the string to the number", err)
 	}
 
 	return GetUsersRespnse{
@@ -66,13 +61,22 @@ func enrichment(u entity.User) GetUsersRespnse {
 		Name:        u.Name,
 		Surname:     u.Surname,
 		Patronymic:  u.Patronymic,
-		Age:         int(age),
+		Age:         age,
 		Gender:      gender,
 		nationality: nationality,
 	}
 
 }
 
+// @Summary      create user on database
+// @Description  create user by name, surname and optional patronymic
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Param        input body storage.User true "user full name"
+// @Success      200  {object}  entity.User
+// @Failure      507  {string} error
+// @Router       /v1/user/ [post]
 func (s Service) AddUser(ctx *gin.Context) {
 	var user storage.User
 	ctx.BindJSON(&user)
@@ -82,11 +86,21 @@ func (s Service) AddUser(ctx *gin.Context) {
 	result := <-statusCodeChan
 
 	if result > 299 {
-		ctx.JSON(http.StatusInternalServerError, "failed to add the user")
+		ctx.JSON(result, "failed to add the user")
+		return
 	}
 	ctx.JSON(result, user)
 }
 
+// @Summary      update user on database
+// @Description  update user by name, surname and optional patronymic
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Param        input body 	storage.User true "user full name"
+// @Success      200  {object}  entity.User
+// @Failure      507  {string} 	error
+// @Router       /v1/user/ [patch]
 func (s Service) PatchUser(ctx *gin.Context) {
 	var user entity.User
 	ctx.BindJSON(&user)
@@ -96,11 +110,21 @@ func (s Service) PatchUser(ctx *gin.Context) {
 	result := <-statusCodeChan
 
 	if result > 299 {
-		ctx.JSON(http.StatusInternalServerError, "failed to patch the user")
+		ctx.JSON(result, "failed to patch the user")
+		return
 	}
 	ctx.JSON(result, user)
 }
 
+// @Summary      get user on database
+// @Description  get user by name, surname and optional patronymic
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Param        name,surname,patronymic	query string	false "optional user full name"
+// @Success      200  {object}  GetUsersRespnse
+// @Failure      507  {string}	error
+// @Router       /v1/user/ [get]
 func (s Service) GetUsers(ctx *gin.Context) {
 	user := storage.User{
 		Name:       ctx.Query("name"),
@@ -110,9 +134,42 @@ func (s Service) GetUsers(ctx *gin.Context) {
 
 	go s.Storage.GetUsers(user, usersChan)
 
-	result := <-usersChan
-	if result == nil {
+	userArray := <-usersChan
+	if userArray == nil {
 		ctx.JSON(http.StatusInternalServerError, "Failed to find the users")
+		return
 	}
+
+	var result []GetUsersRespnse
+
+	for i := range userArray {
+		result = append(result, enrichment(userArray[i]))
+	}
+
 	ctx.JSON(http.StatusOK, result)
+}
+
+// @Summary      delete user on database
+// @Description  delete user on database
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Param        id   path     	int  true  "delete user"
+// @Success      200  {int}  	"id"
+// @Failure      507  {string} 	"error"
+// @Router       /v1/user/{id} 	[delete]
+func (s Service) DeleteUser(ctx *gin.Context) {
+	var stringID string = ctx.Param("id")
+	ID, err := strconv.Atoi(stringID)
+	if err != nil {
+		slog.Error("failed to convert user id to number", err)
+	}
+	s.Storage.DeleteUser(ID, statusCodeChan)
+
+	result := <-statusCodeChan
+	if result > 299 {
+		ctx.JSON(result, "user with such id does not exist")
+		return
+	}
+	ctx.JSON(result, ID)
 }
