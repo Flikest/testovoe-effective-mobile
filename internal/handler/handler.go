@@ -1,8 +1,11 @@
 package handler
 
 import (
+	_ "github.com/Flikest/testovoe-effective-mobile/api/docs"
 	"github.com/Flikest/testovoe-effective-mobile/internal/service"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type Handler struct {
@@ -24,6 +27,7 @@ func (h Handler) InitRouter() *gin.Engine {
 		usersRouter.PATCH("/", h.Service.PatchUser)
 		usersRouter.POST("/", h.Service.AddUser)
 	}
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	return router
 }

@@ -1,8 +1,6 @@
 package service
 
 import (
-	"fmt"
-	"io"
 	"sync"
 
 	"log/slog"
@@ -11,6 +9,7 @@ import (
 
 	"github.com/Flikest/testovoe-effective-mobile/internal/entity"
 	"github.com/Flikest/testovoe-effective-mobile/internal/storage"
+	"github.com/Flikest/testovoe-effective-mobile/pkg/fetch"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,7 +20,7 @@ type GetUsersRespnse struct {
 	Patronymic  string
 	Age         int
 	Gender      string
-	nationality string
+	Nationality []fetch.Country
 }
 
 var (
@@ -30,28 +29,20 @@ var (
 	wg             = sync.WaitGroup{}
 )
 
-func getDataOnUrl(url string) string {
-	response, err := http.Get(url)
-	if err != nil {
-		slog.Error("failed to get an answer: ", err)
-	}
-	defer response.Body.Close()
-
-	data, err := io.ReadAll(response.Body)
-	if err != nil {
-		slog.Error("failed to get the body of the request: ", err)
-	}
-	slog.Info(string(data))
-
-	return string(data)
-}
-
 func enrichment(u entity.User) GetUsersRespnse {
-	stringAge := getDataOnUrl(fmt.Sprintf("https://api.agify.io/?name=%s", u.Name))
-	gender := getDataOnUrl(fmt.Sprintf("https://api.genderize.io/?name=%s", u.Name))
-	nationality := getDataOnUrl(fmt.Sprintf("https://api.nationalize.io/?name=%s", u.Name))
+	age, err := fetch.GetAge(u.Name)
+	if err != nil {
+		slog.Error("failed to get age: ", err)
+	}
+	gender, err := fetch.GetGender(u.Name)
+	if err != nil {
+		slog.Error("failed to get gender: ", err)
+	}
+	nationality, err := fetch.GetCountry(u.Name)
+	if err != nil {
+		slog.Error("failed to get nationality: ", err)
+	}
 
-	age, err := strconv.Atoi(stringAge)
 	if err != nil {
 		slog.Error("failed to convert the string to the number", err)
 	}
@@ -63,7 +54,7 @@ func enrichment(u entity.User) GetUsersRespnse {
 		Patronymic:  u.Patronymic,
 		Age:         age,
 		Gender:      gender,
-		nationality: nationality,
+		Nationality: nationality,
 	}
 
 }
@@ -163,8 +154,9 @@ func (s Service) DeleteUser(ctx *gin.Context) {
 	ID, err := strconv.Atoi(stringID)
 	if err != nil {
 		slog.Error("failed to convert user id to number", err)
+		ctx.JSON(http.StatusInternalServerError, "id")
 	}
-	s.Storage.DeleteUser(ID, statusCodeChan)
+	go s.Storage.DeleteUser(ID, statusCodeChan)
 
 	result := <-statusCodeChan
 	if result > 299 {
