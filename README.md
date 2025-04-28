@@ -3,6 +3,7 @@
 task up
 
 .env:
+
 LVL_DEPLOYMENT=debug
 
 DB_PASS=123
