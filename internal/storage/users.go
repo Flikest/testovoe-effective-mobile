@@ -61,7 +61,7 @@ func (s Storage) DeleteUser(ID int, ch chan int) {
 	_, err := s.DB.Exec(s.Context, deleteUserQuery, ID)
 	if err != nil {
 		s.Log.Info("Failed to remove the user: ", err)
-		ch <- http.StatusInsufficientStorage
+		ch <- http.StatusInternalServerError
 		return
 	}
 
@@ -74,7 +74,7 @@ func (s Storage) PatchUser(u entity.User, ch chan int) {
 	_, err := s.DB.Exec(s.Context, updateUserQuery, u.ID, u.Name, u.Surname, u.Patronymic)
 	if err != nil {
 		s.Log.Info("Failed to update the user data: ", err)
-		ch <- http.StatusInsufficientStorage
+		ch <- http.StatusInternalServerError
 		return
 	}
 
@@ -87,7 +87,7 @@ func (s Storage) AddUser(u User, ch chan int) {
 	_, err := s.DB.Exec(s.Context, createUserQuery, u.Name, u.Surname, u.Patronymic)
 	if err != nil {
 		s.Log.Info("failed to add the user: ", err)
-		ch <- http.StatusInsufficientStorage
+		ch <- http.StatusInternalServerError
 		return
 	}
 
