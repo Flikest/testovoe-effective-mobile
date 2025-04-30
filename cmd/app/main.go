@@ -32,7 +32,8 @@ func main() {
 	log := logger.InitLogger(os.Getenv("LVL_DEPLOYMENT"))
 
 	db, err := postgresql.NewDatabase(&postgresql.PostgresConfig{
-		DBPath: os.Getenv("DB_PATH"),
+		DBPath:  os.Getenv("DB_PATH"),
+		Context: context.Background(),
 	})
 	if err != nil {
 		log.Error("error connect to database: ", err)

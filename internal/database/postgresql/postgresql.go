@@ -7,11 +7,12 @@ import (
 )
 
 type PostgresConfig struct {
-	DBPath string
+	DBPath  string
+	Context context.Context
 }
 
 func NewDatabase(cfg *PostgresConfig) (*pgx.Conn, error) {
-	db, err := pgx.Connect(context.Background(), cfg.DBPath)
+	db, err := pgx.Connect(cfg.Context, cfg.DBPath)
 	if err != nil {
 		return nil, err
 	}
